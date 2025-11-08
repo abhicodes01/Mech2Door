@@ -1,0 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&display=swap');
+@import 'leaflet/dist/leaflet.css';
+
+@import "tailwindcss";
+
+@theme {
+  --font-lex: "Lexend", sans-serif; 
+}
+
+@layer utilities {
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .no-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+}
+
+.Toastify__toast-container--top-right {
+  top: 60px !important;    /* default is --toastify-toast-top */
+  right: 15px !important;  /* default is --toastify-toast-right */
+}
+
