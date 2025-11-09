@@ -6,16 +6,10 @@ import { toast } from "react-toastify";
 import { useSearchParams } from "react-router-dom";
 import L from "leaflet";
 import "leaflet-routing-machine";
+// ⬇️ *** ADD THIS IMPORT for route line styling ***
+import "leaflet-routing-machine/dist/leaflet-routing-machine.css";
 
-const parseLatLngFromString = (str) => {
-  const m = String(str || "").match(/Lat:\s*([-\d.]+)\s*,\s*Lng:\s*([-\d.]+)/i);
-  if (!m) return null;
-  const lat = parseFloat(m[1]);
-  const lng = parseFloat(m[2]);
-  return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null;
-};
-
-// Custom marker icons
+// --- Custom marker icons (Your code is correct) ---
 const userIcon = new L.Icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   iconRetinaUrl:
@@ -41,34 +35,27 @@ const shopIcon = new L.DivIcon({
   iconSize: [28, 28],
   iconAnchor: [14, 28],
 });
+// --- End Icons ---
 
-const handleCancelBooking = async (id) => {
-  const confirmed = window.confirm(
-    "Are you sure you want to cancel this booking?"
-  );
-  if (!confirmed) return;
-  try {
-    const res = await fetch(`http://localhost:5000/api/bookings/${id}`, {
-      method: "DELETE",
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setBookings((prev) => prev.filter((b) => b._id !== id));
-      toast.success("Booking cancelled!");
-    } else {
-      toast.error(data.error || "Failed to cancel.");
-    }
-  } catch (err) {}
-};
 
+// --- RouteLine Component (Added OSRM router) ---
 function RouteLine({ from, to }) {
   const map = useMap();
 
   useEffect(() => {
     if (!from || !to) return;
+    // Check for valid numbers
+    if (!Number.isFinite(from[0]) || !Number.isFinite(from[1]) || !Number.isFinite(to[0]) || !Number.isFinite(to[1])) {
+      return; 
+    }
 
     const control = L.Routing.control({
       waypoints: [L.latLng(from[0], from[1]), L.latLng(to[0], to[1])],
+      // ⬇️ *** ADD THIS ROUTER CONFIGURATION ***
+      router: L.Routing.osrmv1({
+        serviceUrl: 'https://router.project-osrm.org/route/v1'
+      }),
+      // --- End router config ---
       lineOptions: {
         styles: [{ color: "#22c55e", weight: 5, opacity: 0.8 }],
       },
@@ -84,47 +71,96 @@ function RouteLine({ from, to }) {
     return () => {
       map.removeControl(control);
     };
-  }, [from?.[0], from?.[1], to?.[0], to?.[1], map]);
+  }, [from, to, map]); // Simplified dependency array
 
   return null;
 }
+// --- End RouteLine ---
 
+
+// --- Main BookingsPage Component ---
 export default function BookingsPage() {
   const [bookings, setBookings] = useState([]);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  
+  // Default map center (e.g., Indore) if no bookings exist
+  const DEFAULT_CENTER = [22.7196, 75.8577]; 
 
-  useEffect(() => {
-    // Replace this with your actual user logic (localStorage, context, etc.)
+  // Function to fetch bookings
+  const fetchBookings = () => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const email = user.email || "";
 
-    // Fetch from your backend API
     fetch(`http://localhost:5000/api/bookings?userEmail=${email}`)
       .then((res) => res.json())
-      .then((data) => setBookings(data))
+      .then((data) => {
+        setBookings(data);
+        // Automatically select the first booking if none is selected
+        if (!selectedBooking && data.length > 0) {
+          setSelectedBooking(data[0]);
+        }
+      })
       .catch((err) => {
+        console.error("Failed to fetch bookings:", err);
         setBookings([]);
       });
+  };
+  
+  // Fetch on initial load
+  useEffect(() => {
+    fetchBookings();
   }, []);
 
-  const [params] = useSearchParams();
-
+  // Re-fetch when returning from Stripe
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const email = user.email || "";
-    fetch(`http://localhost:5000/api/bookings?userEmail=${email}`)
-      .then((res) => res.json())
-      .then((data) => setBookings(data))
-      .catch(() => setBookings([]));
-  }, [params.toString()]); // re-fetch when returning from Stripe
+    fetchBookings();
+  }, [params.toString()]); 
 
+  // Handle Stripe redirect toasts
   useEffect(() => {
     const status = params.get("status");
     if (status === "success")
       toast.success("Payment successful! Booking confirmed.");
     if (status === "cancel") toast.info("Payment cancelled.");
-  }, [params]);
+    // Remove query params after reading them
+    if (status) {
+      navigate("/bookings", { replace: true });
+    }
+  }, [params, navigate]);
+
+  // ⬇️ *** MOVED handleCancelBooking INSIDE the component ***
+  const handleCancelBooking = async (id) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to cancel this booking?"
+    );
+    if (!confirmed) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/bookings/${id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        // ⬇️ *** This can now access setBookings ***
+        setBookings((prev) => prev.filter((b) => b._id !== id));
+        if (selectedBooking?._id === id) {
+          setSelectedBooking(null); // Clear selection if it was cancelled
+        }
+        toast.success("Booking cancelled!");
+      } else {
+        toast.error(data.error || "Failed to cancel.");
+      }
+    } catch (err) {
+      toast.error("Network error.");
+    }
+  };
+
+  // ⬇️ *** FIX for Problem 1: Set initial center correctly ***
+  const initialCenter = [
+    selectedBooking?.userLat || bookings[0]?.userLat || DEFAULT_CENTER[0],
+    selectedBooking?.userLng || bookings[0]?.userLng || DEFAULT_CENTER[1],
+  ];
 
   return (
     <div className="flex min-h-screen bg-[#121212] pt-16 text-white">
@@ -132,26 +168,29 @@ export default function BookingsPage() {
       <div className="w-full md:w-1/2 lg:w-2/5 p-8 h-[600px] overflow-y-auto">
         <h1 className="text-3xl font-semibold mb-6">Bookings</h1>
         <div className="space-y-6">
-          {bookings.map((b, idx) => (
+          {bookings.map((b) => ( // Removed 'idx'
             <div
-              key={idx}
-              className="flex gap-5 bg-[#343841] rounded-lg shadow p-4 items-center hover:bg-[#444950] transition-colors"
+              key={b._id} // Use unique _id from database
+              className={`flex gap-5 bg-[#343841] rounded-lg shadow p-4 items-center hover:bg-[#444950] transition-colors cursor-pointer ${
+                selectedBooking?._id === b._id ? 'border-2 border-red-00' : 'border-2 border-transparent'
+              }`} // Highlight selected
+              onClick={() => setSelectedBooking(b)} // Click to select
             >
               <img
                 src={b.mechanicImage || b.image}
-                alt={b.name}
+                alt={b.mechanicName}
                 className="w-24 h-24 rounded-lg object-cover flex-shrink-0"
               />
               <div className="flex-1">
                 <h3 className="font-bold text-lg">
-                  {b.mechanicName || b.name}
+                  {b.mechanicName || "Booking"}
                 </h3>
                 <p className="text-[#A0A0A0] text-sm">
                   User location : {b.location}
                 </p>
                 <div className="flex text-[#A0A0A0] text-sm gap-3 mt-1">
                   <span>Vehicle: {b.vehicle}</span>
-                  <span>Reviews: {b.reviews || "N/A"}</span>
+                  {/* <span>Reviews: {b.reviews || "N/A"}</span> */}
                 </div>
                 <div className="flex gap-2 mt-2">
                   <span className="text-xs bg-[#343841] px-2 py-1 rounded">
@@ -163,15 +202,13 @@ export default function BookingsPage() {
                 </div>
                 <div className="mt-2 font-semibold">{b.price}</div>
                 <div className="flex gap-4 mt-4">
-                  <button
-                    className="text-blue-400 hover:underline font-medium"
-                    onClick={() => setSelectedBooking(b)}
-                  >
-                    View
-                  </button>
+                  {/* "View" button is no longer needed as the card is clickable */}
                   <button
                     className="text-red-500 hover:underline font-medium"
-                    onClick={() => handleCancelBooking(b._id)}
+                    onClick={(e) => {
+                      e.stopPropagation(); // Stop click from bubbling to parent
+                      handleCancelBooking(b._id);
+                    }}
                   >
                     Cancel
                   </button>
@@ -182,6 +219,7 @@ export default function BookingsPage() {
         </div>
       </div>
 
+      {/* "No Bookings" Modal */}
       {bookings.length === 0 && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div className="bg-[#23272e] p-8 rounded-xl shadow-lg max-w-md w-full flex flex-col items-center">
@@ -201,44 +239,45 @@ export default function BookingsPage() {
         </div>
       )}
 
-      {/* Right: Map, showing all bookings as markers */}
+      {/* Right: Map */}
       <div className="flex flex-1 justify-center items-start p-8">
         <div className="w-full max-w-xl h-[600px] rounded-lg overflow-hidden shadow-lg border border-[#343841]">
           {bookings.length > 0 && (
             <MapContainer
-              center={[
-                selectedBooking?.lat || bookings[0]?.lat || 0,
-                selectedBooking?.lng || bookings[0]?.lng || 0,
-              ]}
+              key={initialCenter.join("-")} // Force re-render if initial center changes
+              center={initialCenter} // ⬅️ *** FIX 1: Set initial center
               zoom={13}
               style={{ height: "100%", width: "100%" }}
-              scrollWheelZoom={false}
+              scrollWheelZoom={true} // Enabled scroll
             >
               <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               />
               <MapCenterUpdater
-  lat={selectedBooking?.userLat ?? selectedBooking?.userlat ?? bookings[0]?.userLat ?? 0}
-  lng={selectedBooking?.userLng ?? selectedBooking?.userlng ?? bookings[0]?.userLng ?? 0}
-/>
+                lat={selectedBooking?.userLat} // Animate only when selectedBooking changes
+                lng={selectedBooking?.userLng}
+              />
 
-              {bookings.map((b, idx) =>
+              {/* Loop 1: Show ALL shop markers */}
+              {bookings.map((b) =>
                 Number.isFinite(b.shopLat) && Number.isFinite(b.shopLng) ? (
                   <Marker
-                    key={idx}
+                    key={`shop-${b._id}`} // Use unique ID
                     position={[b.shopLat, b.shopLng]}
                     icon={shopIcon}
                   >
+                    {/* ⬇️ *** FIX 2: Fixed shop popup *** */}
                     <Popup>
-                      <b>{b.mechanicName || b.name}</b>
+                      <b>{b.mechanicName || "Shop"}</b>
                       <br />
-                      {b.location /* user-readable address string */}
+                      Mechanic Location
                     </Popup>
                   </Marker>
                 ) : null
               )}
 
+              {/* Loop 2: Show User Marker and Route ONLY for selectedBooking */}
               {selectedBooking &&
                 Number.isFinite(selectedBooking.userLat) &&
                 Number.isFinite(selectedBooking.userLng) &&
@@ -256,22 +295,7 @@ export default function BookingsPage() {
                       <Popup>Your location</Popup>
                     </Marker>
 
-                    {/* Highlight shop marker */}
-                    <Marker
-                      position={[
-                        selectedBooking.shopLat,
-                        selectedBooking.shopLng,
-                      ]}
-                      icon={shopIcon}
-                    >
-                      <Popup>
-                        <b>
-                          {selectedBooking.mechanicName || selectedBooking.name}
-                        </b>
-                        <br />
-                        {selectedBooking.location}
-                      </Popup>
-                    </Marker>
+                    {/* ⬇️ *** REMOVED duplicate shop marker *** */}
 
                     {/* Route between user and shop */}
                     <RouteLine

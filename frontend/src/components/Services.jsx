@@ -5,8 +5,8 @@ import { toast } from "react-toastify";
 import RequireAuthModal from "./RequireAuthmodal";
 import { loadStripe } from "@stripe/stripe-js";
 
-  const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
-  
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+
 const filters = [
   { label: "Most Popular", icon: <FiTrendingUp /> },
   { label: "Top Rated", icon: <FiStar /> },
@@ -30,11 +30,13 @@ const mechanicCards = [
     rating: "4.8",
     distance: "2.1km",
     image:
-      "https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&w=300&q=80",
+      "https://i.pinimg.com/1200x/fc/d6/99/fcd699e0cc41c3f549a34c43fa7fcfd8.jpg",
     carType: "Sedan",
     status: "Open",
     location: "Delhi,India",
     priceInINR: 799,
+    shopLat: 28.6139, // <-- ADD THIS
+    shopLng: 77.209,
   },
   {
     name: "Speedy Auto Care",
@@ -42,11 +44,13 @@ const mechanicCards = [
     rating: "4.6",
     distance: "3.5km",
     image:
-      "https://images.unsplash.com/photo-1503736334956-4c8f8e92946d?auto=format&w=300&q=80",
+      "https://i.pinimg.com/1200x/92/c0/0b/92c00bd333b48da672aade7bfc1f7caa.jpg",
     carType: "SUV",
     status: "Closed",
     location: "Mumbai,India",
     priceInINR: 500,
+    shopLat: 19.076, // <-- ADD THIS
+    shopLng: 72.8777,
   },
   {
     name: "Express Mechanix",
@@ -54,11 +58,13 @@ const mechanicCards = [
     rating: "4.7",
     distance: "1.8km",
     image:
-      "https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&w=300&q=80",
+      "https://i.pinimg.com/736x/c6/6f/cd/c66fcd35627eb27e612c504902555131.jpg",
     carType: "Electric",
     status: "Open",
     location: "Indore,India",
     priceInINR: 1000,
+    shopLat: 22.7196, // <-- ADD THIS
+    shopLng: 75.8577,
   },
   {
     name: "Premium Wheels Garage",
@@ -66,11 +72,13 @@ const mechanicCards = [
     rating: "4.9",
     distance: "4.2km",
     image:
-      "https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&w=300&q=80",
-    carType: "Electric",
+      "https://i.pinimg.com/1200x/1c/4f/f2/1c4ff29a720412ac7a1f7df4c78e1e01.jpg",
+    carType: "Sedan",
     status: "Open",
     location: "Delhi,India",
     priceInINR: 400,
+    shopLat: 22.7196, // <-- ADD THIS
+    shopLng: 75.8577,
   },
   {
     name: "Wheels Garage",
@@ -78,11 +86,13 @@ const mechanicCards = [
     rating: "4.9",
     distance: "4.2km",
     image:
-      "https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&w=300&q=80",
-    carType: "Electric",
+      "https://i.pinimg.com/1200x/c0/26/a1/c026a1d4d7f68f4ec07d2aac28c937f5.jpg",
+    carType: "Sports",
     status: "Open",
     location: "Mumbai,India",
     priceInINR: 2000,
+    shopLat: 22.7196, // <-- ADD THIS
+    shopLng: 75.8577,
   },
 ];
 
@@ -218,55 +228,83 @@ function ServicesSection() {
   };
 
   const handleBookingSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
+    async function geocodePlace(q) {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          q
+        )}`
+      );
+      const data = await res.json();
+      if (data?.length)
+        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      return null;
+    }
 
-  let coords = currentLocation;
-  if (!useCurrentLocation && homeAddress) {
-    coords = await geocodeAddress(homeAddress);
-    if (!coords) {
-      toast.error("Could not find coordinates for the provided address.");
+    // 1) Determine user's coords (you already compute coords)
+    let userCoords = currentLocation;
+    if (!useCurrentLocation && homeAddress) {
+      userCoords = await geocodeAddress(homeAddress);
+      if (!userCoords) {
+        toast.error("Could not find coordinates for the provided address.");
+        return;
+      }
+    }
+
+    // 2) Determine shop coords from card location string (e.g., "Mumbai,India")
+    const shopCoords =
+      selectedMechanic.lat && selectedMechanic.lng
+        ? { lat: selectedMechanic.lat, lng: selectedMechanic.lng } // if you already have them in the card
+        : await geocodePlace(selectedMechanic.location);
+
+    if (!shopCoords) {
+      toast.error("Could not find coordinates for the shop location.");
       return;
     }
-  }
 
-  const bookingPayload = {
-    userEmail: localStorage.getItem("user")
-      ? JSON.parse(localStorage.getItem("user")).email
-      : "",
-    name: bookingName,
-    vehicle: vehicleNumber,
-    location: useCurrentLocation
-      ? `Lat: ${coords.lat}, Lng: ${coords.lng}`
-      : homeAddress,
-    lat: coords?.lat,
-    lng: coords?.lng,
-    mechanicName: selectedMechanic.name,
-    mechanicImage: selectedMechanic.image,
-    problemDescription,
-    date: bookingDate,
-    time: bookingTime || "1PM",
-    priceInINR: selectedMechanic.priceInINR, // use price from the card
+    const bookingPayload = {
+      userEmail: localStorage.getItem("user")
+        ? JSON.parse(localStorage.getItem("user")).email
+        : "",
+      name: bookingName,
+      vehicle: vehicleNumber,
+      location: useCurrentLocation
+        ? `Lat: ${coords.lat}, Lng: ${coords.lng}`
+        : homeAddress,
+      userLat: userCoords?.lat, // Use userLat
+      userLng: userCoords?.lng, // Use userLng
+      shopLat: selectedMechanic.shopLat, // Send shopLat
+      shopLng: selectedMechanic.shopLng,
+      mechanicName: selectedMechanic.name,
+      mechanicImage: selectedMechanic.image,
+      problemDescription,
+      date: bookingDate,
+      time: bookingTime || "1PM",
+      priceInINR: selectedMechanic.priceInINR, // use price from the card
+    };
+
+    try {
+      const res = await fetch(
+        "http://localhost:5000/api/payments/create-checkout-session",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bookingPayload),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to initiate payment.");
+        return;
+      }
+
+      const stripe = await stripePromise;
+      // Redirect to Stripe Checkout
+      window.location.href = data.url; // or await stripe.redirectToCheckout({ sessionId: data.id });
+    } catch (err) {
+      toast.error("Network error.");
+    }
   };
-
-  try {
-    const res = await fetch("http://localhost:5000/api/payments/create-checkout-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(bookingPayload),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      toast.error(data.error || "Failed to initiate payment.");
-      return;
-    }
-
-    const stripe = await stripePromise;
-    // Redirect to Stripe Checkout
-    window.location.href = data.url; // or await stripe.redirectToCheckout({ sessionId: data.id });
-  } catch (err) {
-    toast.error("Network error.");
-  }
-};
 
   return (
     <section className="flex gap-8 py-10 px-8 bg-[#121212] relative">

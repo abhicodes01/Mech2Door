@@ -130,7 +130,6 @@ function SigninPage({ onLogin }) {
           // support deep-link/continue flow (if you passed state from modal)
           const redirectTo = location.state?.redirectTo || "/"; // requires: const location = useLocation();
           navigate(redirectTo, { replace: true });
-          toast.success("Signed In")
         } else {
           toast.error(data.error || "Wrong email or password.");
         }

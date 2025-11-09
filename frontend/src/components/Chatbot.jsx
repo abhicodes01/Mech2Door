@@ -6,11 +6,26 @@ const bubbleCommon =
 const botBubble = `${bubbleCommon} bg-[#23272e] text-white`;
 const userBubble = `${bubbleCommon} bg-red-600 text-white ml-auto`;
 
+// ⬇️ *** ADDED: Contact details from your HelpPage.jsx ***
+const CONTACT_DETAILS = `
+Here are our contact details. Please reach out if you need assistance!
+
+📞 **Phone:**
++91 9824530881
+
+✉️ **Email:**
+mech2door123@gmail.com
+
+📍 **Address:**
+Indore, Madhya Pradesh
+`.trim();
+// --- End of new constant ---
+
 export default function Chatbot() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([
-    { role: "bot", text: "Hi! Ask me about your bookings or anything else." },
+    { role: "bot", text: "Hi! Ask me about your bookings or anything else. You can also type 'help' or 'contact' for support details." },
   ]);
   const listRef = useRef(null);
 
@@ -27,6 +42,17 @@ export default function Chatbot() {
     const userMsg = { role: "user", text };
     setMessages(prev => [...prev, userMsg]);
     setInput("");
+
+    // ⬇️ *** ADDED: Local check for 'help' or 'contact' ***
+    const lowerCaseText = text.toLowerCase();
+    if (lowerCaseText === "help" || lowerCaseText === "contact") {
+      setMessages(prev => [
+        ...prev,
+        { role: "bot", text: CONTACT_DETAILS }
+      ]);
+      return; // <-- Important: Stops the API call from running
+    }
+    // --- End of new check ---
 
     const stored = JSON.parse(localStorage.getItem("user") || "{}");
     const email = stored?.email || "";
@@ -90,7 +116,8 @@ export default function Chatbot() {
             {messages.map((m, i) => (
               <div key={i} className={m.role === "user" ? "flex" : "flex"}>
                 <div className={m.role === "user" ? userBubble : botBubble}>
-                  {m.text}
+                  {/* ⬇️ Use dangerouslySetInnerHTML to render line breaks and bold text */}
+                  <div dangerouslySetInnerHTML={{ __html: m.text.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
                 </div>
               </div>
             ))}

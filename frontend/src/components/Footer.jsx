@@ -44,13 +44,13 @@ function Footer() {
           <h3 className="text-lg font-semibold mb-3">Contact</h3>
           <ul className="space-y-2">
             <li className="flex items-center gap-2">
-              <FiPhone /> +1 (416) 555-0188
+              <FiPhone /> +91 9824530881
             </li>
             <li className="flex items-center gap-2">
-              <FiMail /> info@company.com
+              <FiMail /> mech2door123@gmail.com
             </li>
             <li className="flex items-center gap-2">
-              <FiMapPin /> 123 Harmony Lane, Suite 204<br />Toronto, ON, Canada M4B 1C5
+              <FiMapPin /> Indore<br />Madhya Pradesh
             </li>
           </ul>
         </div>

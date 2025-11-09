@@ -49,12 +49,12 @@ function HelpPage() {
         <div className="flex-1 flex flex-col gap-10 mt-10 md:mt-0">
           <div>
             <h3 className="text-white font-semibold mb-3">Visit us</h3>
-            <p className="text-[#A0A0A0]">263 Homebush Road<br />Strathfield South 2136</p>
+            <p className="text-[#A0A0A0]">Indore<br />Madhya Pradesh</p>
           </div>
           <div>
             <h3 className="text-white font-semibold mb-3">Talk to us</h3>
-            <p className="text-[#A0A0A0] mb-1">+61 421 307 908</p>
-            <p className="text-[#A0A0A0]">helen@helenarvan.com</p>
+            <p className="text-[#A0A0A0] mb-1">+91 9824530881</p>
+            <p className="text-[#A0A0A0]">mech2door123@gmail.com</p>
           </div>
           <div className="flex gap-4 text-white text-2xl">
             <FiTwitter className="cursor-pointer" />

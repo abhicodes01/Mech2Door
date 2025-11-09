@@ -22,8 +22,10 @@ router.post("/create-checkout-session", async (req, res) => {
       name,
       vehicle,
       location,
-      lat,
-      lng,
+      userLat, // Changed from lat
+      userLng, // Changed from lng
+      shopLat, // Added
+      shopLng,
       mechanicName,
       mechanicImage,
       problemDescription,
@@ -38,8 +40,10 @@ router.post("/create-checkout-session", async (req, res) => {
       name,
       vehicle,
       location,
-      lat,
-      lng,
+      userLat, // Changed from lat
+      userLng, // Changed from lng
+      shopLat, // Added
+      shopLng,
       mechanicName,
       mechanicImage,
       problemDescription,
